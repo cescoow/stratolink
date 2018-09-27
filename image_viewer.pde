@@ -421,4 +421,3 @@ float convert(float to_conv) {
   float final_anw = (float)(first + next/60.0);
   return -1*final_anw;
 }
-
