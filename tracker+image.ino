@@ -31,8 +31,12 @@ int aux = 39;
 int i = 0;
 int j = 0;
 int contador = 0;
+int buzzer = 21;
 bool status_sd = false;
+unsigned long previousMillis = 0;
+const long interval = 20000;
 String string_data = "";
+String picName = "pic0.jpg" ;
 
 /*********************************************************************/
 void setup()
@@ -41,6 +45,7 @@ void setup()
   Serial1.begin(9600);
   Serial3.begin(9600);
   pinMode(11, OUTPUT);         // CS pin of SD Card Shiel
+  pinMode(buzzer, OUTPUT);
   pinMode(M0, OUTPUT);
   pinMode(M1, OUTPUT);
   pinMode(aux, INPUT);
@@ -56,30 +61,55 @@ void setup()
     return;
   }
   initialize();
+  start_song();
 }
 /*********************************************************************/
 void loop()
 {
-  while (Serial3.available() > 0)
+  /*while (Serial3.available() > 0)
     if (gps.encode(Serial3.read()))
       displayInfo();
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println(F("No GPS detected: check wiring."));
-    while(true);
+    Serial1.println("Falha GPS");
   }
-  //delay(1000);
+  */
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    send_photo();
+    previousMillis = currentMillis;
+  }
+
+  smartDelay(2000);
+  //if (gps.altitude.isUpdated()||gps.hdop.isUpdated() || gps.location.isUpdated() || gps.satellites.isUpdated() || gps.course.isUpdated() || gps.speed.isUpdated()){
+  //}
+  displayInfo();
+
   //send_photo();
 }
 /*********************************************************************/
+
+static void smartDelay(unsigned long ms){
+  unsigned long start = millis();
+  do
+  {
+    while (Serial3.available() > 0){
+      gps.encode(Serial3.read());
+    }
+  } while (millis() - start < ms);
+}
+
+/*********************************************************************/
+
 void displayInfo()
 {
   //String Padrão
   //(CIR;Valido;lat;lon;HDOP;Sats;alt_gps;direção;vel_kph;temp_bmp;alt_bmp)
   i = 0;
   string_data = "";
-  string_data.concat("CIR;");
+  string_data.concat("2;");
   if (gps.location.isValid()){
     string_data.concat(1); string_data.concat(";");
   }
@@ -87,7 +117,8 @@ void displayInfo()
     string_data.concat(0); string_data.concat(";");
     Serial.print(F("INVALID"));
   }
-
+ //2;1;-220008.53;-479019.78;0;0;0.00;0.00;0.33;0.00;30367.23;234;1;x
+  if (gps.location.isUpdated()){
   string_data.concat(gps.location.lat()*10000); string_data.concat(";");
   string_data.concat(gps.location.lng()*10000); string_data.concat(";");
   string_data.concat(gps.hdop.value());string_data.concat(";");
@@ -98,14 +129,20 @@ void displayInfo()
   string_data.concat(bmp.readTemperature());string_data.concat(";");
   string_data.concat(bmp.readAltitude());string_data.concat(";");
   string_data.concat(bmp.readPressure());string_data.concat(";");
-  string_data.concat(status_sd);string_data.concat(";x");
-  //Serial1.print(string_data);
+  string_data.concat(status_sd);
+  string_data.concat(";x");
+  save_data();
+  Serial1.print(string_data);
+}
+  tone(buzzer, 2000);
+  delay(100);
+  noTone(buzzer);
   contador++;
-  if (contador == 9){
-    send_photo();
+  if (contador >= 19){
+    //send_photo();
     contador = 0;
   }
-  delay(800);
+  //delay(800);
 }
 
 /*********************************************************************/
@@ -117,8 +154,9 @@ void send_photo(){
   Capture();
   //capture_test();
   GetData();
-  delay(1000);
+  delay(2000);
   read_data_sd();
+  delay(3000);
 }
 
 /*********************************************************************/
@@ -126,7 +164,7 @@ void lora_config(){
   digitalWrite(M0, 1);
   digitalWrite(M1, 1);
   delay(160);
-  byte comand[] = {0xC0, 0x00, 0x00, 0x3D, 0x0F, 0x44};
+  byte comand[] = {0xC0, 0x00, 0x00, 0x3D, 0x10, 0x44};
   int i = 0;
   while (i < 6){
     Serial1.write(comand[i]);
@@ -142,10 +180,69 @@ void lora_config(){
 
 }
 /*********************************************************************/
+void start_song(){
+  tone(buzzer, 3000);
+  delay(100);
+  tone(buzzer, 800);
+  delay(200);
+  tone(buzzer, 100);
+  delay(50);
+  tone(buzzer, 800);
+  delay(100);
+  tone(buzzer, 100);
+  delay(50);
+  tone(buzzer, 2000);
+  delay(100);
+  tone(buzzer, 100);
+  delay(50);
+  tone(buzzer, 2000);
+  delay(100);
+  tone(buzzer, 100);
+  delay(50);
+  tone(buzzer, 3000);
+  delay(200);
+  tone(buzzer, 800);
+  delay(100);
+  tone(buzzer, 100);
+  delay(50);
+  tone(buzzer, 3000);
+  delay(100);
+  tone(buzzer, 100);
+  delay(50);
+  tone(buzzer, 2000);
+  delay(300);
+  tone(buzzer, 100);
+  delay(50);
+  noTone(buzzer);
+}
+/*********************************************************************/
+void save_data(){
+  //digitalWrite(red, LOW);
+  //wdt_reset();
+
+  Serial.println(F("Save."));
+  myFile = SD.open("log.txt", FILE_WRITE);
+  if(myFile){
+    status_sd = true;
+    myFile.println(string_data);
+    myFile.close();
+    Serial.println(F("Gravado."));
+    tone(buzzer, 3000);
+    delay(100);
+    noTone(buzzer);
+  }else{
+    //digitalWrite(red, HIGH);
+    tone(buzzer, 800);
+    delay(1000);
+    noTone(buzzer);
+  }
+}
+
+/*********************************************************************/
 void read_data_sd(){
-  myFile = SD.open("PIC00.jpg");
+  myFile = SD.open(picName);
   int file_size = myFile.size();
-  String start_string = "img;";
+  String start_string = "1;";
   start_string.concat(file_size);
   start_string.concat(";");
   start_string.concat(file_size/200);
@@ -170,7 +267,10 @@ void read_data_sd(){
         Serial1.write(byte_array[i]);
         //delay(2);
       }
-      delay(500);
+      tone(buzzer, 1500);
+      delay(200);
+      noTone(buzzer);
+      delay(300);
       counter = 0;
     }
     // close the file:
@@ -311,13 +411,14 @@ void GetData()
   byte cmd[] = {0xaa, 0x0e | cameraAddr, 0x00, 0x00, 0x00, 0x00};
   unsigned char pkt[PIC_PKT_LEN];
 
-  char picName[] = "pic00.jpg";
-  //picName[3] = picNameNum / 10 + '0';
-  //picName[4] = picNameNum % 10 + '0';
-
-  if (SD.exists(picName))
-  {
-    SD.remove(picName);
+  while (SD.exists(picName)){
+    picNameNum++;
+    picName = "pic" ;
+    picName.concat(picNameNum);
+    picName.concat(".jpg");
+    //SD.remove(picName);
+    //picName[3] = picNameNum / 10 + '0';
+    //picName[4] = picNameNum % 10 + '0';
   }
 
   myFile = SD.open(picName, FILE_WRITE);
