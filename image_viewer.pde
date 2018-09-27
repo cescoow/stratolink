@@ -369,7 +369,10 @@ void parseString(String serialString) {
   println(serialString);
   
   String items[] = (split(serialString, ';'));
-  if (items[0].equals("CIR") == true) {
+  println((items[0]));
+  float mode = (float(items[0]));
+  println(mode);
+  if (mode == 2.0) {
     println("chegou");
     valido = boolean(items[2]);
     latitude = float(items[2]);
@@ -385,7 +388,7 @@ void parseString(String serialString) {
     //temp_bmp = int(items[10]);
     //alt_bmp = int(items[11]);
     //println(latitude + northSouth + "," +longitude + eastWest + "," + vert_speed);
-  }else if(items[0].equals("img") == true){
+  }else if(mode == 1.0){
     println("got an image");
     file_size = int(items[1]);
     packet_number = int(items[2]);
@@ -400,4 +403,3 @@ float convert(float to_conv) {
   float final_anw = (float)(first + next/60.0);
   return -1*final_anw;
 }
-
