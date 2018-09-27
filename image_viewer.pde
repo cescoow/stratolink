@@ -16,6 +16,7 @@ import saito.objloader.*;
 import processing.serial.*;
 
 PImage img;
+PImage bkg;
 
 int linefeed = 10;       
 int carriageReturn = 13;          
@@ -29,9 +30,13 @@ int time_out = 0;
 int file_size = 0;
 int packet_number = 0;
 int received_bytes = 0;
+int new_counter = 0;
 
 String northSouth;   
 String eastWest; 
+String new_name = "";
+String last_name = "test20.jpg";
+
 
 
 float latitude = 0.000000; 
@@ -79,7 +84,11 @@ public void setup() {
   if (frame != null) { 
     frame.setResizable(true);
   } 
-  output = createOutput("test20.jpg");
+  //new_name.concat("test");
+  //new_name = new_name + new_counter;
+  //new_name.concat(".jpg");
+  new_name = "test21.jpg";
+  output = createOutput(new_name);
   // Configuracion del mapa
   //OpenWeatherProvider.PrecipitationClassic()
   //Mapa = new UnfoldingMap(this, new OpenStreetMapProvider());
@@ -257,8 +266,10 @@ public void draw() {
   }else{
     text("Waiting", 0, 520);
   }
+  bkg = loadImage("test20.jpg");
+  image(bkg, 0, 0, bkg.width/2, bkg.height/2);
 
-  if ((millis() - time > 10000) && (received_once) && (time_out_flag == false)){
+  if ((millis() - time > 1000) && (received_once) && (time_out_flag == false)){
     stop = true;
     //println("finished");
     time_out_flag = true;
@@ -269,9 +280,16 @@ public void draw() {
     receiving_image = false;
     println("time out");
     myPort.clear();
+    last_name = new_name;
+    /*new_name = "";
+    new_counter++;
+    new_name = new_name + new_counter;
+    new_name.concat(".jpg");*/
+    output = createOutput(new_name);
   }
   if ((received_once)){
-    img = loadImage("test20.jpg");
+    
+    img = loadImage(last_name);
     image(img, 0, 0, img.width/2, img.height/2);
   }
   /*String data  =   (myPort.readStringUntil ( 'x' ) ) ; 
@@ -374,9 +392,9 @@ void parseString(String serialString) {
   println(mode);
   if (mode == 2.0) {
     println("chegou");
-    valido = boolean(items[2]);
-    latitude = float(items[2]);
-    longitude = float(items[3]);
+    valido = boolean(items[1]);
+    latitude = float(items[2])/10000;
+    longitude = float(items[3])/10000;
     hdop = float(items[5]);
     sats = float(items[6]);
     last_alt = altitude;
@@ -403,3 +421,4 @@ float convert(float to_conv) {
   float final_anw = (float)(first + next/60.0);
   return -1*final_anw;
 }
+
