@@ -7,6 +7,7 @@ import de.fhpotsdam.unfolding.geo.Location;
 import de.fhpotsdam.unfolding.utils.MapUtils;
 import de.fhpotsdam.unfolding.marker.SimplePointMarker;
 import de.fhpotsdam.unfolding.providers.OpenStreetMap.*;
+import de.fhpotsdam.unfolding.utils.ScreenPosition;
 //import de.fhpotsdam.unfolding.providers.PrecipitationClassic.*;
 import de.fhpotsdam.unfolding.providers.Microsoft;
 import de.fhpotsdam.unfolding.providers.Yahoo;
@@ -14,9 +15,14 @@ import de.fhpotsdam.unfolding.providers.Yahoo;
 import processing.opengl.*;
 import saito.objloader.*;
 import processing.serial.*;
+import ddf.minim.*;
 
 PImage img;
 PImage bkg;
+PImage balloon;
+
+AudioSnippet beep;
+Minim minim;
 
 int linefeed = 10;       
 int carriageReturn = 13;          
@@ -31,6 +37,7 @@ int file_size = 0;
 int packet_number = 0;
 int received_bytes = 0;
 int new_counter = 0;
+int indexer = 0;
 
 String northSouth;   
 String eastWest; 
@@ -53,12 +60,15 @@ float ground_speed = 0;
 boolean follow = true;
 boolean must_connect = false;
 boolean connected = false;
-boolean valido = false;
+int valido = 0;
 boolean receive_image = false;
 boolean receiving_image = false;
 boolean received_once = false;
 boolean time_out_flag = true;
 Boolean stop = false;
+
+float[] latitude_array = new float[100];
+float[] longitude_array = new float[100];
 
 
 
@@ -79,6 +89,8 @@ Chart myChart2;
 float LAT = -22.708048, LON = -46.772617;  
 
 public void setup() {
+  latitude_array[0] = 0.0;
+  longitude_array[0] = 0.0;
 
   size(1200, 600, OPENGL); // Porte de la pantalla
   if (frame != null) { 
@@ -96,9 +108,8 @@ public void setup() {
   Mapa2 = new UnfoldingMap(this, new Microsoft.AerialProvider());
   Mapa = new UnfoldingMap(this, new Yahoo.HybridProvider());
   //Mapa = new UnfoldingMap(this, new OpenWeatherProvider.Wind());
-  GPS = new Location(LAT, LON);                                
-
-  GPSMarker = new SimplePointMarker(GPS); 
+  GPS = new Location(LAT, LON);
+  GPSMarker = new SimplePointMarker(GPS);   
   //connectionMarker = new SimpleLinesMarker(Location, Location);
   GPSMarker.setColor(color(255, 100, 0, 100));
   Mapa.addMarkers(GPSMarker);   
@@ -160,9 +171,15 @@ public void setup() {
         .setSize(200, 19)
           ;
   //conect();
+  //GPSMarker = new SimplePointMarker(GPS);
+  minim = new Minim(this);
+  beep = minim.loadSnippet("beep.mp3");
 
   delay(1000);
 }
+
+
+//*************************************************
 
 public void draw() {
   //delay(100);
@@ -172,7 +189,9 @@ public void draw() {
      
   GPS.setLat(latitude);
   GPS.setLon(longitude); 
-  GPSMarker.setLocation(latitude, longitude); 
+  GPSMarker.setLocation(latitude, longitude);
+  
+  
   
   if (follow == true) {
     Mapa2.draw();
@@ -186,6 +205,26 @@ public void draw() {
     rect(990, 320, 50, 19);
     
   } 
+  fill(#DB1212);
+  ScreenPosition Pos = GPSMarker.getScreenPosition(Mapa2);
+  //ellipse(Pos.x, Pos.y, 30, 30);
+  balloon = loadImage("balloon.png");
+  image(balloon,Pos.x - balloon.width/20, Pos.y - balloon.width/20, balloon.width/10, balloon.height/10);
+  
+  /*for (int i = 0; i == indexer; i = i+1) {
+    //String marker = "marker" + i;
+    SimplePointMarker marker; 
+    marker = new SimplePointMarker(GPS);
+    marker.setLocation(latitude_array[indexer]+i, longitude_array[indexer]+i);
+    ScreenPosition Pos2 = marker.getScreenPosition(Mapa2);
+    balloon = loadImage("balloon.png");
+    image(balloon,Pos2.x - balloon.width/10, Pos2.y - balloon.width/10, balloon.width/10, balloon.height/10);
+  }
+  */
+  
+  //ellipse(Pos.x, Pos.y, 30, 30);
+  
+  
   if (connected == true) {
     fill(#4ADB12);
     rect(990, 345, 50, 19);
@@ -232,7 +271,7 @@ public void draw() {
   }
   String serial = builder.toString();
   //println(serial);
-  if(valido){
+  if(valido == 1){
     fill(#00FC2C);
     text("GOOD", 0, 590);
   }else{
@@ -259,7 +298,7 @@ public void draw() {
     received_once = true;
     text("Receiving", 0, 520);
     text(received_bytes, 100, 520);
-    text(100*received_bytes/file_size, 200, 600);
+    //text(100*received_bytes/file_size, 200, 520);
     fill(#8FFC6B);
     rect(0, 522, 120*received_bytes/file_size, 20);
     //println("receiving");
@@ -281,10 +320,9 @@ public void draw() {
     println("time out");
     myPort.clear();
     last_name = new_name;
-    /*new_name = "";
+    new_name = "";
     new_counter++;
-    new_name = new_name + new_counter;
-    new_name.concat(".jpg");*/
+    new_name = new_name + new_counter + ".jpg";
     output = createOutput(new_name);
   }
   if ((received_once)){
@@ -292,6 +330,10 @@ public void draw() {
     img = loadImage(last_name);
     image(img, 0, 0, img.width/2, img.height/2);
   }
+  
+  
+  
+  
   /*String data  =   (myPort.readStringUntil ( 'x' ) ) ; 
   if (data != null){
     print(data);
@@ -328,13 +370,15 @@ void I(int theValue) {
 
 void conect() {
   println(Serial.list());
-  myPort = new Serial(this, "COM8", 115200);
+  myPort = new Serial(this, "COM1", 115200);
   //myPort.bufferUntil('x');
   connected = true;
 }
 
 
 void serialEvent(Serial myPort) { 
+  beep.play();
+  beep.rewind();
   /*String myString = myPort.readStringUntil(linefeed);
   if (myString != null) {
     parseString(myString);
@@ -392,15 +436,20 @@ void parseString(String serialString) {
   println(mode);
   if (mode == 2.0) {
     println("chegou");
-    valido = boolean(items[1]);
+    valido = int(items[1]);
     latitude = float(items[2])/10000;
     longitude = float(items[3])/10000;
-    hdop = float(items[5]);
-    sats = float(items[6]);
+    hdop = float(items[4]);
+    sats = float(items[5]);
     last_alt = altitude;
-    altitude = float(items[7]);
+    altitude = float(items[6]);
     vert_speed = (last_alt - altitude)/((millis() - last_time)/1000);
     last_time = millis();
+    
+    latitude_array[indexer] = latitude;
+    longitude_array[indexer] = longitude;
+    indexer++;
+    beep.play();
     //dir = int(items[8]);
     //ground_speed = float(items[9]);
     //temp_bmp = int(items[10]);
@@ -420,5 +469,4 @@ float convert(float to_conv) {
   float next = to_conv - (float)first*100;
   float final_anw = (float)(first + next/60.0);
   return -1*final_anw;
-  
 }
