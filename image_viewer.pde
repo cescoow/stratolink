@@ -274,6 +274,12 @@ public void draw() {
     img = loadImage("test20.jpg");
     image(img, 0, 0, img.width/2, img.height/2);
   }
+  /*String data  =   (myPort.readStringUntil ( 'x' ) ) ; 
+  if (data != null){
+    print(data);
+    parseString(data);
+  }
+  */
 }
 
 public void controlEvent(ControlEvent theEvent) {
@@ -305,7 +311,7 @@ void I(int theValue) {
 void conect() {
   println(Serial.list());
   myPort = new Serial(this, "COM8", 115200);
-  myPort.bufferUntil(carriageReturn);
+  //myPort.bufferUntil('x');
   connected = true;
 }
 
@@ -332,15 +338,32 @@ void serialEvent(Serial myPort) {
   }
   }else{
     String data  =   (myPort.readStringUntil ( 'x' ) ) ; 
+    if(data != null){
+      //println(data);
+      parseString(data);
+      data = "";
+    }
+  }
+  
+  /*if(receive_image==false){
+    try { 
+      String data = myPort.readStringUntil ( 'x' );
+      print(data);
+      parseString(data); 
+  }finally{
+  }*/
+  /*}else{
+    String data  =   (myPort.readStringUntil ( 'x' ) ) ; 
     print(data);
     parseString(data);
-
+*/
     
   }
-} 
+ 
 
 
 void parseString(String serialString) {
+  myPort.clear();
   //String Padrão
   //(CIR;Valido;lat;lon;HDOP;Sats;alt_gps;direção;vel_kph;temp_bmp;alt_bmp)
   println(serialString);
@@ -377,3 +400,4 @@ float convert(float to_conv) {
   float final_anw = (float)(first + next/60.0);
   return -1*final_anw;
 }
+
