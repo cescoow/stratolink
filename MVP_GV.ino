@@ -6,10 +6,10 @@ Implementar:
   - Função save_mode_log
   - Gerador de TM por structure
   - Função cut_off
-  - Watch Dog 
+  - Watch Dog
   - Case switch modos
   - Redundância velocidade vert (bar + gps?)
-  - Deixar cod bonito 
+  - Deixar cod bonito
 Para o Mega Cores e Arduino IDE (ATMEGA2560v em 8MHz), pinagem "AVR pinout"
 */
 
@@ -51,16 +51,25 @@ int contador = 0;
 int buzzer = 21;
 int blue = 58;
 int red = 57;
+int mode = 0;
+float low_stab = 3; // m/s
+float med_stab = 1; // m/s
+float bar_speed = 100;
 bool status_sd = false;
+bool manual_overide = false;
+bool updated_bar_speed = false;
+bool is_open = false;
+bool got_data = false;
 String string_data = "";
+String com_data = "";
 String picName = "pic0.jpg" ;
 
 /*********************************************************************/
 void setup()
 {
   Serial.begin(9600); // Câmera + interface PC
-  Serial1.begin(9600); // LoRa 
-  Serial3.begin(9600); // GPS 
+  Serial1.begin(9600); // LoRa
+  Serial3.begin(9600); // GPS
   pinMode(11, OUTPUT);
   pinMode(buzzer, OUTPUT);
   pinMode(blue, OUTPUT);
@@ -80,8 +89,8 @@ void setup()
     return;
   }
   setGPS_DynamicModel6(); // Conf. GPS para airbone (até 50Km)
-  initialize(); // Inicia a câmera - Discutir se vamos deixar isso. Verificar se não trava a câmera se não iniciar 
-  start_song(); // Bonitin 
+  initialize(); // Inicia a câmera - Discutir se vamos deixar isso. Verificar se não trava a câmera se não iniciar
+  start_song(); // Bonitin
 }
 /*********************************************************************/
 void loop()
@@ -91,53 +100,125 @@ void loop()
     set_run_mode(com_data);
     got_data = false;
   }
-  run();
+  run(mode);
   send_tm();
-  
+
 }
 /*********************************************************************/
-void run(mode){ // Implementar switch case de modos de voo. Os modos de voo devem ser executados dentro de períodos conhecidos 
-  
+void run(int mode){ // Implementar switch case de modos de voo. Os modos de voo devem ser executados dentro de períodos conhecidos
+  switch (mode) {
+    case 0:
+      mode_0();
+      break;
+    case 1:
+      mode_1();
+      break;
+    case 2:
+      mode_2();
+      break;
+    case 3:
+      mode_3();
+      break;
+    case 4:
+      mode_4();
+      break;
+    case 5:
+      mode_5();
+      break;
+    case 6:
+      mode_6();
+      break;
+    case 7:
+      mode_7();
+      break;
+    case 8:
+      mode_8();
+      break;
+    case 9:
+      mode_9();
+      break;
+    default:
+      mode_0();
+      break;
+  }
+
 }
 /*********************************************************************/
-void (mode_0){ // Default - Faz nada e retorna pra enviar TM - Adicionar indicativo LED + buzzer (green + high pitch)
-  
+void open_valve(){
+
 }
 /*********************************************************************/
-void (mode_1){ // Envia foto - Pronto
+void close_valve(){
+
+}
+/*********************************************************************/
+void mode_0(){ // Auto - auto mode e retorna pra enviar TM - Adicionar indicativo LED + buzzer (green + high pitch)
+
+}
+/*********************************************************************/
+void mode_1(){ // Envia foto - Pronto
   send_photo();
-  save_mode_log();
+  save_mode_log(1, 0);
 }
 /*********************************************************************/
-void (mode_2){ // Low stab - opera valvula com target de "" - definir var low_stab (3 m/s?)
-  save_mode_log();
+void mode_2(){ // Low stab - opera valvula com target de "" - definir var low_stab (3 m/s?)
+  if ((updated_bar_speed) && (bar_speed >= low_stab)){
+    open_valve();
+    save_mode_log(2, 1);
+  }else{
+    close_valve();
+    save_mode_log(2, 0);
+  }
 }
 /*********************************************************************/
-void (mode_3){ // Med stab - opera valvula com target de "" - definir var med_stab (1 m/s?)
-  save_mode_log();
+void mode_3(){ // Med stab - opera valvula com target de "" - definir var med_stab (1 m/s?)
+  if ((updated_bar_speed) && (bar_speed >= med_stab)){
+    open_valve();
+    save_mode_log(3, 1);
+  }else{
+    close_valve();
+    save_mode_log(3, 0);
+  }
 }
 /*********************************************************************/
-void (mode_4){ // Full stab - opera valvula com target de 0 m/s  - experimental - rodar antes de end_flight
-  save_mode_log();
+void mode_4(){ // Full stab - opera valvula com target de 0 m/s  - experimental - rodar antes de end_flight
+  if ((updated_bar_speed) && (bar_speed >= 0.0)){
+    open_valve();
+    save_mode_log(4, 1);
+  }else{
+    close_valve();
+    save_mode_log(4, 0);
+  }
 }
 /*********************************************************************/
-void (mode_5){ // custom_stab - discutir aplicabilidade
-  save_mode_log();
+void mode_5(){ // custom_stab - discutir aplicabilidade
+  save_mode_log(5, 0);
 }
 /*********************************************************************/
-void (mode_6){ // open_valve - hard mode - manual
-  save_mode_log();
+void mode_6(){ // open_valve - hard mode - manual
+  open_valve();
+  save_mode_log(6, 1);
 }
 /*********************************************************************/
-void (mode_7){ // close_valve - hard mode - manual
-  save_mode_log();
+void mode_7(){ // close_valve - hard mode - manual
+  close_valve();
+  save_mode_log(7, 0);
 }
 /*********************************************************************/
-void (mode_8){ // end_flight! Termina o voo. Implementar cut off. Implementar modo especial de descida? 
-  save_mode_log();
+void mode_8(){ // end_flight! Termina o voo. Implementar cut off. Implementar modo especial de descida?
+  save_mode_log(8, 0);
 }
 /*********************************************************************/
-void save_mode_log(){ // Salva o modo de execução em um .txt com o tempo de cod rodado 
+void mode_9(){ // Por enquanto nada
+  save_mode_log(9, 0);
+}
+/*********************************************************************/
+void save_mode_log(int function, int valve_status){ // Salva o modo de execução em um .txt com o tempo de cod rodado
+  if (valve_status == 0){
+    is_open = false;
+  }else{
+    is_open = true;
+  }
 }
 /*********************************************************************/
 static void smartDelay(unsigned long ms){ //Função para ler string do GPS e LoRa e parar o cód por certo tempo
@@ -155,8 +236,8 @@ static void smartDelay(unsigned long ms){ //Função para ler string do GPS e Lo
         com_data.concat(Serial1.read());
       }
     }
-  } while (millis() - start < ms){
   }
+  while ((millis() - start) < ms);
   float end_alt = get_bar_alt();
   bar_speed = (end_alt - start_alt)/(ms/1000);
   updated_bar_speed = true;
@@ -164,48 +245,49 @@ static void smartDelay(unsigned long ms){ //Função para ler string do GPS e Lo
 /*********************************************************************/
 
 float get_bar_alt(){ // Media de 3 leituras p/ precisao
-  float ref_alt = (bmp.readAltitude() + bmp.readAltitude() + bmp.readAltitude())/3
+  float ref_alt = ((bmp.readAltitude() + bmp.readAltitude() + bmp.readAltitude())/3);
   return ref_alt;
 }
 
 /*********************************************************************/
-void set_run_mode(String run_mode){ // Atualiza var global de modo de voo 
-  if (run_mode.equals("default"){
+void set_run_mode(String run_mode){ // Atualiza var global de modo de voo
+  lora_send("Received comand:" + run_mode);
+  if (run_mode.equals("auto")){
     mode = 0;
-    lora_send("Mode set to: 1")
+    lora_send("Mode set to: 0");
   }
-  if (run_mode.equals("send_photo"){
+  if (run_mode.equals("send_photo")){
     mode = 1;
-    lora_send("Mode set to: 1")
+    lora_send("Mode set to: 1");
   }
-  if (run_mode.equals("low_stab"){
+  if (run_mode.equals("low_stab")){
     mode = 2;
-    lora_send("Mode set to: 2")
+    lora_send("Mode set to: 2");
   }
-  if (run_mode.equals("medium_stab"){
+  if (run_mode.equals("medium_stab")){
     mode = 3;
-    lora_send("Mode set to: 3")
+    lora_send("Mode set to: 3");
   }
-  if (run_mode.equals("full_stab"){
+  if (run_mode.equals("full_stab")){
     mode = 4;
-    lora_send("Mode set to: 4")
+    lora_send("Mode set to: 4");
   }
-  if (run_mode.equals("custom_stab"){
+  if (run_mode.equals("custom_stab")){
     mode = 5;
     lora_send("Target speed?");
-    get_target_speed();  
+    get_target_speed();
   }
-  if (run_mode.equals("open_valve"){
+  if (run_mode.equals("open_valve")){
     mode = 6;
-    lora_send("Mode set to: 6")
+    lora_send("Mode set to: 6");
   }
-  if (run_mode.equals("close_valve"){
+  if (run_mode.equals("close_valve")){
     mode = 7;
-    lora_send("Mode set to: 7")
+    lora_send("Mode set to: 7");
   }
-  if (run_mode.equals("end_flight"){
+  if (run_mode.equals("end_flight")){
     mode = 8;
-    lora_send("Mode set to: 8! Oh my! Going down!")
+    lora_send("Mode set to: 8! Oh my! Going down!");
   }
 }
 
@@ -214,11 +296,11 @@ void get_target_speed(){ // Construir função que retorne a velocidade alvo em 
 }
 /*********************************************************************/
 
-void lora_send(String data){ // Envia string via LoRa 
+void lora_send(String data){ // Envia string via LoRa
   while (digitalRead(aux) == 0){ // Verifica se lora não está ocupado
   }
   if (digitalRead(aux) == 1){ // Checar mais uma vez por redundância
-    Serial1.write(data);
+    Serial1.print(data);
   }
 }
 /*********************************************************************/
