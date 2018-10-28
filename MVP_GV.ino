@@ -1,6 +1,5 @@
 /* Código teste para StratoLink. Implementado: Telemetria e envio de imagem, recepção e setagem de modos;
 Implementar:
-  - Variáveis globais das funções
   - Funções de modos
   - Rotina de troca de modo automática
   - Função save_mode_log
