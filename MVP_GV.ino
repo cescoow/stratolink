@@ -52,6 +52,7 @@ int buzzer = 21;
 int blue = 58;
 int red = 57;
 int mode = 0;
+int flight_duration = 5*60*60;
 float low_stab = 3; // m/s
 float med_stab = 1; // m/s
 float bar_speed = 100;
@@ -177,6 +178,9 @@ void mode_0(){ // Auto - auto mode e retorna pra enviar TM - Adicionar indicativ
     if (get_bar_alt() >= end_flight_alt){
       end_flight();
     }
+  }
+  if ((millis()/1000) > flight_duration){
+    end_flight();
   }
 }
 /*********************************************************************/
@@ -355,10 +359,12 @@ void send_tm() //Função para parser da NMEA, calculo dos parâmetros do barôm
   string_data.concat(bmp.readAltitude());string_data.concat(";");
   string_data.concat(bmp.readPressure());string_data.concat(";");
   string_data.concat(status_sd);string_data.concat(";");
+  string_data.concat(bar_speed);string_data.concat(";");
+  string_data.concat(is_open); ; string_data.concat(";");
   string_data.concat(millis()/1000);
   string_data.concat(";x");
   save_data();
-  Serial1.print(string_data); // Envia a string de TM para o LoRa
+  lora_send(string_data); // Envia a string de TM para o LoRa
   tone(buzzer, 2000);
   digitalWrite(blue,1);
   delay(100);
