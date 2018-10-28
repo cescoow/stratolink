@@ -55,6 +55,11 @@ int mode = 0;
 float low_stab = 3; // m/s
 float med_stab = 1; // m/s
 float bar_speed = 100;
+float first_try_start = 15000;
+float first_try_stop = 18000;
+float second_try_start = 20000;
+float second_try_stop = 22000;
+float end_flight_alt = 22500;
 bool status_sd = false;
 bool manual_overide = false;
 bool updated_bar_speed = false;
@@ -89,11 +94,11 @@ void setup()
     return;
   }
   setGPS_DynamicModel6(); // Conf. GPS para airbone (até 50Km)
-  initialize(); // Inicia a câmera - Discutir se vamos deixar isso. Verificar se não trava a câmera se não iniciar
+  initialize(); // Inicia a câmera - Discutir se vamos deixar isso. Verificar se não trava a tudo se não iniciar
   start_song(); // Bonitin
 }
 /*********************************************************************/
-void loop()
+void loop() // Rotina de modos devem ser implementadas para execução unica, sem delays, em intervalos de smartDelay
 {
   smartDelay(2000);
   if (got_data){
@@ -101,7 +106,7 @@ void loop()
     got_data = false;
   }
   run(mode);
-  send_tm();
+  send_tm(); // Modo padrão
 
 }
 /*********************************************************************/
@@ -152,8 +157,27 @@ void close_valve(){
 
 }
 /*********************************************************************/
-void mode_0(){ // Auto - auto mode e retorna pra enviar TM - Adicionar indicativo LED + buzzer (green + high pitch)
+void end_flight(){
 
+}
+/*********************************************************************/
+void mode_0(){ // Auto - auto mode e retorna pra enviar TM - Adicionar indicativo LED + buzzer (green + high pitch)]
+  if ((get_bar_alt() >= first_try_start)&&(get_bar_alt() <= first_try_stop) && (updated_bar_speed) && (bar_speed >= low_stab)){
+    open_valve();
+  }else{
+    close_valve();
+  }
+  if ((get_bar_alt() >= second_try_start)&&(get_bar_alt() <= second_try_stop) && (updated_bar_speed) && (bar_speed >= med_stab)){
+    open_valve();
+  }else{
+    close_valve();
+  }
+  if (get_bar_alt() >= end_flight_alt){
+    delay(1000); // esperar um pouco pra conferir
+    if (get_bar_alt() >= end_flight_alt){
+      end_flight();
+    }
+  }
 }
 /*********************************************************************/
 void mode_1(){ // Envia foto - Pronto
@@ -350,7 +374,7 @@ void send_tm() //Função para parser da NMEA, calculo dos parâmetros do barôm
 
 /*********************************************************************/
 
-void send_photo(){ // Função que chama as rotinas de captura, transferência, gravação no SD, leitura do arquio, quebra de pacote e envio da imagem
+void send_photo(){ // Função que chama as rotinas de captura, transferência, gravação no SD, leitura do arquivo, quebra de pacote e envio da imagem
   int n = 0;
   delay(200);
   preCapture();
