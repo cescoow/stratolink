@@ -1,14 +1,12 @@
 /* Código teste para StratoLink. Implementado: Telemetria e envio de imagem, recepção e setagem de modos;
 Implementar:
-  - Variáveis globais das funções
-  - Funções de modos
-  - Rotina de troca de modo automática
   - Função save_mode_log
   - Gerador de TM por structure
   - Função cut_off
   - Watch Dog
   - Case switch modos
   - Redundância velocidade vert (bar + gps?)
+  - Funções de abrir e fechar valvula
   - Deixar cod bonito
 Para o Mega Cores e Arduino IDE (ATMEGA2560v em 8MHz), pinagem "AVR pinout"
 */
