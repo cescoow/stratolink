@@ -1,5 +1,6 @@
 /* Código teste para StratoLink. Implementado: Telemetria e envio de imagem, recepção e setagem de modos;
 Implementar:
+  - Variáveis globais das funções
   - Funções de modos
   - Rotina de troca de modo automática
   - Função save_mode_log
@@ -94,15 +95,16 @@ void setup()
     return;
   }
   setGPS_DynamicModel6(); // Conf. GPS para airbone (até 50Km)
-  initialize(); // Inicia a câmera - Discutir se vamos deixar isso. Verificar se não trava a tudo se não iniciar
+  //initialize(); // Inicia a câmera - Discutir se vamos deixar isso. Verificar se não trava a tudo se não iniciar
   start_song(); // Bonitin
 }
 /*********************************************************************/
 void loop() // Rotina de modos devem ser implementadas para execução unica, sem delays, em intervalos de smartDelay
 {
-  smartDelay(2000);
+  smartDelay(6000);
   if (got_data){
     set_run_mode(com_data);
+    Serial.println("Set mode");
     got_data = false;
   }
   run(mode);
@@ -113,9 +115,13 @@ void loop() // Rotina de modos devem ser implementadas para execução unica, se
 void run(int mode){ // Implementar switch case de modos de voo. Os modos de voo devem ser executados dentro de períodos conhecidos
   switch (mode) {
     case 0:
+      digitalWrite(blue, 1); // Implementar indicativos luminosos e sonoros pra cada modo
+      digitalWrite(red, 0);
       mode_0();
       break;
     case 1:
+      digitalWrite(blue, 1);
+      digitalWrite(red, 1);
       mode_1();
       break;
     case 2:
@@ -137,6 +143,8 @@ void run(int mode){ // Implementar switch case de modos de voo. Os modos de voo 
       mode_7();
       break;
     case 8:
+      digitalWrite(blue, 0);
+      digitalWrite(red, 1);
       mode_8();
       break;
     case 9:
@@ -260,8 +268,10 @@ static void smartDelay(unsigned long ms){ //Função para ler string do GPS e Lo
       com_data = "";
       got_data = true;
       while(Serial1.available() > 0){
-        com_data.concat(Serial1.read());
+        com_data.concat(char(Serial1.read()));
+        delay(2);
       }
+      Serial.print(com_data);
     }
   }
   while ((millis() - start) < ms);
@@ -279,42 +289,44 @@ float get_bar_alt(){ // Media de 3 leituras p/ precisao
 /*********************************************************************/
 void set_run_mode(String run_mode){ // Atualiza var global de modo de voo
   lora_send("Received comand:" + run_mode);
-  if (run_mode.equals("auto")){
+  Serial.println("Received comand:" + run_mode);
+  if (run_mode.equals("auto\n")){
     mode = 0;
+    Serial.println("Mode set to: 0");
     lora_send("Mode set to: 0");
   }
-  if (run_mode.equals("send_photo")){
+  if (run_mode.equals("send_photo\n")){
     mode = 1;
     lora_send("Mode set to: 1");
   }
-  if (run_mode.equals("low_stab")){
+  if (run_mode.equals("low_stab\n")){
     mode = 2;
     lora_send("Mode set to: 2");
   }
-  if (run_mode.equals("medium_stab")){
+  if (run_mode.equals("medium_stab\n")){
     mode = 3;
     lora_send("Mode set to: 3");
   }
-  if (run_mode.equals("full_stab")){
+  if (run_mode.equals("full_stab\n")){
     mode = 4;
     lora_send("Mode set to: 4");
   }
-  if (run_mode.equals("custom_stab")){
+  if (run_mode.equals("custom_stab\n")){
     mode = 5;
     lora_send("Target speed?");
     get_target_speed();
   }
-  if (run_mode.equals("open_valve")){
+  if (run_mode.equals("open_valve\n")){
     mode = 6;
     lora_send("Mode set to: 6");
   }
-  if (run_mode.equals("close_valve")){
+  if (run_mode.equals("close_valve\n")){
     mode = 7;
     lora_send("Mode set to: 7");
   }
-  if (run_mode.equals("end_flight")){
+  if (run_mode.equals("end_flight\n")){
     mode = 8;
-    lora_send("Mode set to: 8! Oh my! Going down!");
+    lora_send("Mode set to: 8! Oh my! Going down!\n");
   }
 }
 
@@ -396,19 +408,19 @@ void lora_config(){ // Configura os parâmetros do LoRa
   digitalWrite(M0, 1);
   digitalWrite(M1, 1);
   delay(160);
-  byte comand[] = {0xC0, 0x00, 0x00, 0x39, 0x10, 0x44};
+  byte comand[] = {0xC0, 0x00, 0x00, 0x19, 0x10, 0x44};
   int i = 0;
   while (i < 6){
     Serial1.write(comand[i]);
     i++;
   }
   delay(500);
-  Serial1.flush();
+  /*Serial1.flush();
   delay(2);
   Serial1.end();
   delay(500);
 
-  Serial1.begin(115200);
+  Serial1.begin(115200);*/
 
 }
 
