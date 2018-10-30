@@ -366,12 +366,13 @@ void lora_send(String data){ // Envia string via LoRa
 /*********************************************************************/
 void receive_lora(){
   int packetSize = LoRa.parsePacket();
-  if (packetSize)
+  if (packetSize){
     com_data = "";
     got_data = true;{
     Serial.print("Pacote recebido");
     while (LoRa.available()) {
       com_data.concat((char)LoRa.read());
+    }
     }
   }
 }
@@ -408,6 +409,7 @@ void send_tm() //Função para parser da NMEA, calculo dos parâmetros do barôm
   string_data.concat(millis()/1000);
   string_data.concat(";x");
   save_data();
+  Serial.println(string_data);
   lora_send(string_data); // Envia a string de TM para o LoRa
   tone(buzzer, 2000);
   digitalWrite(blue,1);
@@ -440,7 +442,7 @@ void send_photo(){ // Função que chama as rotinas de captura, transferência, 
 void lora_config(){ // Configura os parâmetros do LoRa
   Serial.println("Iniciando LoRa");
   LoRa.setPins(10, 9, 2); //LoRa.setPins(ss, reset, dio0)
-  if (!LoRa.begin(915.125E6)) {
+  if (!LoRa.begin(433.125E6)) {
     Serial.println("Falha LoRa");
     //while (1); Discutir - resetar wtd
   }
