@@ -8,22 +8,22 @@
   - Deixar cod bonito
   Para o Mega Cores e Arduino IDE (ATMEGA2560v em 8MHz), pinagem "AVR pinout"
   Lista de Modos:
-	0 - Auto - "auto\n" - Abertura autnoma da vlvula e trmino de voo
-	1 - Photo - "send_photo\n" - Captura e envio de foto
-	2 - Low Stab - "low_stab\n" - Estabilizao manual low
-	3 - Med Stab - "medium_stab\n" - Estabilizao manual med
-	4 - Full Stab - "full_stab\n" - Estabilizao manual full
-	5 - Custom Stab - "custom_stab\n" - ND
-	6 - Open Valve - "open_valve\n" - Abre vlvula manualmente
-	7 - Close Valve - "close_valve\n" - Fecha vlvula manualmente
-	8 - End Flight - "end_flight\n" - Termina voo
-	9 - Bounce - "bounce\n" - Flutuao normal
-	10 - Load String - "load_string\n" - Abre e fecha servo pra carregar corda
-	11 - Reset - "reset\n" - Loop p/ reiniciar por WTD
-	12 - Delay 15 min - "delay_15\n" - Posterga 15 min
-	13 - Delay 30 min - "delay_30\n" - Posterga 30 min
-	14 - Delay 60 min - "delay_60\n" - Posterga 60 min
-	15 - Valve Test - "test\n" - Abre e fecha valvula p/ teste
+  0 - Auto - "auto\n" - Abertura autnoma da vlvula e trmino de voo
+  1 - Photo - "send_photo\n" - Captura e envio de foto
+  2 - Low Stab - "low_stab\n" - Estabilizao manual low
+  3 - Med Stab - "medium_stab\n" - Estabilizao manual med
+  4 - Full Stab - "full_stab\n" - Estabilizao manual full
+  5 - Custom Stab - "custom_stab\n" - ND
+  6 - Open Valve - "open_valve\n" - Abre vlvula manualmente
+  7 - Close Valve - "close_valve\n" - Fecha vlvula manualmente
+  8 - End Flight - "end_flight\n" - Termina voo
+  9 - Bounce - "bounce\n" - Flutuao normal
+  10 - Load String - "load_string\n" - Abre e fecha servo pra carregar corda
+  11 - Reset - "reset\n" - Loop p/ reiniciar por WTD
+  12 - Delay 15 min - "delay_15\n" - Posterga 15 min
+  13 - Delay 30 min - "delay_30\n" - Posterga 30 min
+  14 - Delay 60 min - "delay_60\n" - Posterga 60 min
+  15 - Valve Test - "test\n" - Abre e fecha valvula p/ teste
 */
 
 #include <arduino.h>
@@ -36,6 +36,7 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <math.h>
+#include <avr/wdt.h>
 
 /*TIAGO: inclui o inttypes*/
 #include <inttypes.h>
@@ -52,7 +53,7 @@
 
 /*TIAGO: Struct do pacote*/
 typedef struct package {
-  int32_t mode;
+  int32_t mode_;
   uint8_t tk1; //ponto e virgula
   int32_t gps_isValid;
   uint8_t tk2;
@@ -152,7 +153,7 @@ int32_t servo = 0;
 int32_t flight_duration = 5 * 60 * 60;
 int32_t low_stab = 3; // m/s
 int32_t med_stab = 1; // m/s
-int32_t bar_speed = 100;
+float bar_speed = 100;
 int32_t first_try_start = 15000;
 int32_t first_try_stop = 18000;
 int32_t second_try_start = 20000;
@@ -176,6 +177,7 @@ package pkg;
 /*********************************************************************/
 void setup()
 {
+  wdt_disable();
   Serial.begin(9600); // Cmera + interface PC
   Serial1.begin(9600); // LoRa
   Serial3.begin(9600); // GPS
@@ -198,9 +200,14 @@ void setup()
   //initialize(); // Inicia a cmera - Discutir se vamos deixar isso. Trava tudo se a cmera no responder no iniciar
   pwm.begin(); // Inicializa o driver pwm
   pwm.setPWMFreq(60); // Seta a freq. do driver
-  delay(10);
+  delay(1000);
+  open_servo();
+  delay(1000);
   close_servo();
+  mode_10();
+  mode_15();
   start_song(); // Bonitin
+  wdt_enable(WDTO_8S);
 }
 /*********************************************************************/
 void loop() // Rotina de modos devem ser implementadas para execuo unica, sem delays, em intervalos de smartDelay
@@ -208,6 +215,7 @@ void loop() // Rotina de modos devem ser implementadas para execuo unica, sem de
   smartDelay(6000);
   if (got_data) {
     set_run_mode(com_data);
+    delay(2000);
     Serial.println("Set mode");
     got_data = false;
   }
@@ -268,6 +276,9 @@ void run(int mode) { // Implementar switch case de modos de voo. Os modos de voo
       break;
     case 14:
       mode_14();
+      break;
+    case 15:
+      mode_15();
       break;
     default:
       mode_0();
@@ -366,7 +377,7 @@ void mode_7() { // close_valve - hard mode - manual
 void mode_8() { // end_flight! Termina o voo. Implementar cut off. Implementar modo especial de descida?
   end_flight();
   save_mode_log(8, 0);
-  mode = 0;
+
 }
 /*********************************************************************/
 void mode_9() { // Bounce - sem acionamento da vlvula
@@ -458,6 +469,7 @@ static void smartDelay(unsigned long ms) { //Funo para ler string do GPS e LoRa 
   unsigned long start = millis();
   do
   {
+    wdt_reset();
     while (Serial3.available() > 0) {
       gps.encode(Serial3.read());
     }
@@ -576,17 +588,17 @@ void send_tm() //Funo para parser da NMEA, calculo dos parmetros do barmetro, mo
 {
 
   //TIAGO: Passando as leituras para variaveis
-  int32_t mode = 3;
+  int32_t mode_ = 3;
   int32_t gps_is_valid = gps.location.isValid();
-  int32_t gps_lat = gps.location.lat();
-  int32_t gps_lng = gps.location.lng();
+  float gps_lat = gps.location.lat();
+  float gps_lng = gps.location.lng();
   int32_t gps_hdop_value = gps.hdop.value();
   int32_t gps_satellites_value = gps.satellites.value();
   int32_t gps_altitude_meters = gps.altitude.meters();
   int32_t gps_course_deg = gps.course.deg();
   int32_t gps_speed_kmph = gps.speed.kmph();
   int32_t bpm_temperature = bmp.readTemperature();
-  int32_t bpm_altitude = get_bar_alt();//func do Cesco
+  float bpm_altitude = get_bar_alt();//func do Cesco
   int32_t bpm_pressure = bmp.readPressure();
   double distanceKm = gps.distanceBetween(gps.location.lat(),gps.location.lng(),launch_lat,launch_lon) / 1000;
   double course = gps.courseTo(launch_lat,launch_lon,gps_lat,gps_lng);
@@ -623,6 +635,7 @@ void send_tm() //Funo para parser da NMEA, calculo dos parmetros do barmetro, mo
   string_data.concat(status_sd); string_data.concat(";");
   string_data.concat(bar_speed); string_data.concat(";");
   string_data.concat(is_open); ; string_data.concat(";");
+  string_data.concat(mode); ; string_data.concat(";");
   string_data.concat(millis() / 1000);
   string_data.concat(";x");
   save_data();
@@ -630,7 +643,7 @@ void send_tm() //Funo para parser da NMEA, calculo dos parmetros do barmetro, mo
   lora_send(string_data); // Envia a string de TM para o LoRa
 
   /*TIAGO: Montagem da struct do pacote*/
-  pkg.mode = 3;
+  pkg.mode_ = 3;
   pkg.tk1 = ';';
   pkg.gps_isValid = gps_is_valid;
   pkg.tk3 = ';';
