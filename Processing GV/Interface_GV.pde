@@ -57,6 +57,7 @@ int press = 0;
 int rssid = 0;
 int hdop = 9999;
 int sats = 0;
+int mode_op = 0;
 
 String northSouth;
 String eastWest;
@@ -376,10 +377,10 @@ void Auto(int theValue) {
 }
 //******************************************************************************
 
-void Photo(int theValue) {
-  mode = 1;
+void Test(int theValue) {
+  mode = 15;
   marker = 20+25*mode;
-  send_base("send_photo\n");
+  send_base("test\n");
 }
 //******************************************************************************
 
@@ -551,7 +552,7 @@ void parseString(String serialString) {
     status_sd = int(items[15]);
     bar_speed = float(items[16]);
     is_open = int(items[17]);
-    mode = int(items[18]);
+    mode_op= int(items[18]);
     elapsed_t = int(items[19]);
     rssid = int(items[21]);
     beep.play();
@@ -647,7 +648,7 @@ void config_bots(){
 
   cp11 = new ControlP5(this);
 
-  cp11.addButton("Send Photo")
+  cp11.addButton("Test")
     .setValue(0)
       .setPosition(1000, 45)
         .setSize(200, 19)
@@ -774,7 +775,7 @@ void draw_data_bar_1(){
   text(temp_bmp, 100, 12+3*25);
   text(press, 100, 12+4*25);
   text(bar_speed, 100, 12+6*25);
-  text(mode, 100, 12+8*25);
+  text(mode_op, 100, 12+8*25);
   text(elapsed_t, 100, 12+9*25);
   text(distance, 100, 12+10*25);
   text(alt_bmp, 100, 12+11*25);
