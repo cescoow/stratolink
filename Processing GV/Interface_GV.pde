@@ -522,7 +522,8 @@ void parseString(String serialString) {
   myPort.clear();
   //String Padrão
   //(CIR;Valido;lat;lon;HDOP;Sats;alt_gps;direção;vel_kph;temp_bmp;alt_bmp)
-  //2;1;-220000;-470000;9999;0;836;0;3;3.43;89.85;-1;0;30355;235;1;0;0;0;458;x
+  //2;0;0.00;0.00;9999;0;0;0;0;5739.10;71.32;-1;30;783.61;92267;1;-0.13;0;0;115;-53;0;14285;x;-63;y
+
 
   println(serialString);
 
@@ -554,7 +555,7 @@ void parseString(String serialString) {
     is_open = int(items[17]);
     mode_op= int(items[18]);
     elapsed_t = int(items[19]);
-    rssid = int(items[21]);
+    rssid = int(items[24]);
     beep.play();
     
     /*
