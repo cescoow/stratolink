@@ -6,7 +6,7 @@ import de.fhpotsdam.unfolding.UnfoldingMap;
 import de.fhpotsdam.unfolding.geo.Location;
 import de.fhpotsdam.unfolding.utils.MapUtils;
 import de.fhpotsdam.unfolding.marker.SimplePointMarker;
-import de.fhpotsdam.unfolding.providers.OpenStreetMap.*;
+//import de.fhpotsdam.unfolding.providers.OpenStreetMap.*;
 import de.fhpotsdam.unfolding.utils.ScreenPosition;
 //import de.fhpotsdam.unfolding.providers.PrecipitationClassic.*;
 import de.fhpotsdam.unfolding.providers.Microsoft;
@@ -16,6 +16,10 @@ import processing.opengl.*;
 import saito.objloader.*;
 import processing.serial.*;
 import ddf.minim.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 
 PImage img;
 PImage bkg;
@@ -58,6 +62,21 @@ int rssid = 0;
 int hdop = 9999;
 int sats = 0;
 int mode_op = 0;
+int up_rssi = 0;
+int cut_off = 0;
+int duration = 0;
+int hdop_2 = 0;
+int sats_2 = 0;
+int altitude_2 = 0;
+int speed2 = 0;
+int temp_2 = 0;
+int alt_2 = 0;
+int internal_press = 0;
+
+File mode_1_file = null;
+File mode_2_file = null;
+File mode_3_file = null;
+File mode_4_file = null;
 
 String northSouth;
 String eastWest;
@@ -69,6 +88,8 @@ StringList data_bar_1;
 
 float latitude = 0.000000;
 float longitude = 0.000000;
+float latitude_2 = 0.000000;
+float longitude_2 = 0.000000;
 float altitude = 0;
 float vert_speed = 0;
 float last_alt = 0;
@@ -90,6 +111,7 @@ boolean time_out_flag = true;
 Boolean stop = false;
 
 Serial myPort;
+Serial myPort2;
 OutputStream output;
 OutputStream output2;
 UnfoldingMap Mapa;
@@ -156,11 +178,15 @@ public void setup() {
   data_bar_1.append("Valve");
   data_bar_1.append("Mode");
   data_bar_1.append("Elapsed T:");
+  data_bar_1.append("Up RSSI:");
+  data_bar_1.append("Duration:");
+  data_bar_1.append("Servo:");
+
 
   cp5 = new ControlP5(this);
   myChart = cp5.addChart("Altitude")
-    .setPosition(0, 330)
-      .setSize(170, 60)
+    .setPosition(0, 390)
+      .setSize(170, 40)
         .setRange(0, 32000)
           .setView(Chart.LINE) // use Chart.LINE, Chart.PIE, Chart.AREA, Chart.BAR_CENTERED
             .setStrokeWeight(1.5)
@@ -172,8 +198,8 @@ public void setup() {
 
   cp6 = new ControlP5(this);
   myChart2 = cp6.addChart("Temperature")
-    .setPosition(0, 430)
-      .setSize(170, 60)
+    .setPosition(0, 450)
+      .setSize(170, 40)
         .setRange(-50, 40)
           .setView(Chart.LINE) // use Chart.LINE, Chart.PIE, Chart.AREA, Chart.BAR_CENTERED
             .setStrokeWeight(1.5)
@@ -243,6 +269,16 @@ public void draw() {
   rect(750, 550, 120, 200);
   rect(900, 550, 120, 200);
   rect(1050, 550, 220, 200);
+
+  fill(#5FE046);
+  rect(150, 500, 120, 40);
+  rect(300, 500, 120, 40);
+  rect(450, 500, 120, 40);
+  rect(600, 500, 120, 40);
+  rect(750, 500, 120, 40);
+  rect(900, 500, 120, 40);
+  rect(1050, 500, 220, 40);
+  fill(#030303);
   draw_data_bar_1();
   fill(#CE0026);
   textSize(20);
@@ -254,6 +290,15 @@ public void draw() {
   text("Sats", 750, 570);
   text("Speed", 900, 570);
   text("Vertical Speed", 1050, 570);
+
+  text("HDOP", 150, 520);
+  text("Altitude", 300, 520);
+  text("Latitude", 450, 520);
+  text("Longitude", 600, 520);
+  text("Int Temp", 750, 520);
+  text("Int Press", 900, 520);
+  text("Calc Alt", 1050, 520);
+
   StringBuilder builder = new StringBuilder();
   for (String s : Serial.list ()) {
     builder.append(s);
@@ -273,6 +318,15 @@ public void draw() {
   text(sats, 750, 590);
   text(ground_speed, 900, 590);
   text(vert_speed, 1050, 590);
+
+  fill(#000000);
+  text(hdop_2, 150, 540);
+  text(altitude_2, 300, 540);
+  text(latitude_2, 450, 540);
+  text(longitude_2, 600, 540);
+  text(temp_2, 750, 540);
+  text(internal_press, 900, 540);
+  text(alt_2, 1050, 540);
   fill(#B7F5E5);
   textSize(20);
   //text("The Cirrus Map", 1020, 30);
@@ -366,6 +420,7 @@ void Image_size(int theValue) {
 void conect() {
   println(Serial.list());
   myPort = new Serial(this, "COM1", 9600);
+  myPort2 = new Serial(this, "COM20", 9600);
   connected = true;
 }
 //******************************************************************************
@@ -398,10 +453,10 @@ void Full(int theValue) {
 }
 //******************************************************************************
 
-void Custom(int theValue) {
+void Ping(int theValue) {
   mode = 5;
   marker = 20+25*(mode - 1);
-  send_base("custom_stab\n");
+  send_base("ping\n");
 }
 //******************************************************************************
 
@@ -486,7 +541,7 @@ void send_base(String pkt){
 }
 //******************************************************************************
 
-void serialEvent(Serial myPort) {
+void serialEvent(Serial thisPort) {
   beep.play();
   beep.rewind();
   if(receive_image){
@@ -505,21 +560,27 @@ void serialEvent(Serial myPort) {
     e.printStackTrace();
   }
   }else{
-    
     String data  =   (myPort.readStringUntil ( 'y' ) ) ;
     println(data);
     if(data != null){
       parseString(data);
       data = "";
     }
+    String data2  =   (myPort2.readStringUntil ( 'y' ) ) ;
+    println(data2);
+    if(data2 != null){
+      parseString(data2);
+      data2 = "";
+    }
   }
+}
 
 
-  }
 
 //******************************************************************************
 void parseString(String serialString) {
   myPort.clear();
+  myPort2.clear();
   //String Padrão
   //(CIR;Valido;lat;lon;HDOP;Sats;alt_gps;direção;vel_kph;temp_bmp;alt_bmp)
   //2;0;0.00;0.00;9999;0;0;0;0;5739.10;71.32;-1;30;783.61;92267;1;-0.13;0;0;115;-53;0;14285;x;-63;y
@@ -532,6 +593,10 @@ void parseString(String serialString) {
   float rx_mode = (float(items[0]));
   println(rx_mode);
   if (rx_mode == 2.0) {
+    
+    //TIAGO
+    save_mode_to_file(2, serialString);
+    
     println("chegou");
     valido = int(items[1]);
     latitude = float(items[2])/10000;
@@ -555,6 +620,9 @@ void parseString(String serialString) {
     is_open = int(items[17]);
     mode_op= int(items[18]);
     elapsed_t = int(items[19]);
+    up_rssi = int(items[20]);
+    cut_off = int(items[21]);
+    duration = int(items[22]);
     rssid = int(items[24]);
     beep.play();
     
@@ -580,11 +648,32 @@ void parseString(String serialString) {
     string_data.concat(millis() / 1000);
     */
   }else if(rx_mode == 1.0){
+    
+    //TIAGO
+    save_mode_to_file(1, serialString);
+    
     println("got an image");
     file_size = int(items[1]);
     packet_number = int(items[2]);
     print("size: "); print(file_size); print("packets: "); println(packet_number);
     receive_image = true;
+  }else if(rx_mode == 4.0){
+    
+    //TIAGO
+    save_mode_to_file(4, serialString);
+    
+    //4;1;-220009.67;-479020.69;19800;198;8.00;0.00;2.82;0.00;30367.23;234;1890;1;;-41;y
+    latitude_2 = float(items[2])/10000;
+    longitude_2 = float(items[3])/10000;
+    hdop_2 = int(items[4]);
+    sats_2 = int(items[5]);
+    altitude_2 = int(items[6]);
+    speed2 = int(items[8]);
+    temp_2 = int(items[9]);
+    alt_2 = int(items[10]);
+    internal_press = int(items[11]);
+
+    println("From 433");
   }
 
 }
@@ -671,7 +760,7 @@ void config_bots(){
 
   cp14 = new ControlP5(this);
 
-  cp14.addButton("Custom")
+  cp14.addButton("Ping")
     .setValue(0)
       .setPosition(1000, 120)
         .setSize(200, 19)
@@ -758,7 +847,7 @@ void draw_data_bar_1(){
   fill(#000000);
   rect(0, 0, 170, 500);
   fill(#0A10A2);
-  for (int i = 20; i < 300; i = i+25) {
+  for (int i = 20; i < 400; i = i+25) {
     rect(0, i, 170, 19);
 }
   fill(#FFFFFF);
@@ -770,6 +859,9 @@ void draw_data_bar_1(){
   text ("Distance:", 0, 12 + 10*25);
   text ("Alt Bar.:", 0, 12 + 11*25);
   text ("Direction:", 0, 12 + 12*25);
+  text ("Up RSSI:", 0, 12 + 13*25);
+  text ("Duration:", 0, 12 + 14*25);
+  text ("Cut Off:", 0, 12 + 15*25);
   fill(#F4F500);
   text(azimute, 100, 12+25);
   text(elevation, 100, 12+2*25);
@@ -781,6 +873,8 @@ void draw_data_bar_1(){
   text(distance, 100, 12+10*25);
   text(alt_bmp, 100, 12+11*25);
   text(direction, 100, 12+12*25);
+  text(up_rssi, 100, 12+13*25);
+  text(duration, 100, 12+14*25);
   if(status_sd == 1){
     fill(#1BF500);
     text("GOOD", 100, 12+5*25);
@@ -795,5 +889,66 @@ void draw_data_bar_1(){
     fill(#FF0004);
     text("CLOSED", 100, 12+7*25);
   }
+  if(cut_off == 1){
+    fill(#1BF500);
+    text("OPEN", 100, 12+15*25);
+  }else{
+    fill(#FF0004);
+    text("CLOSED", 100, 12+15*25);
+  }
 }
 
+void save_mode_to_file(int mode, String data){
+
+  File mode_file = null;
+  if(mode == 1){
+    mode_file = mode_1_file;
+  }
+  if(mode == 2){
+    mode_file = mode_2_file;
+  }
+  if(mode == 3){
+    mode_file = mode_3_file;
+  }
+  if(mode == 4){
+    mode_file = mode_4_file;
+  }
+  
+  if(mode_file == null){
+    String timeStamp = new SimpleDateFormat("dd_HH_mm_ss").format(new Date());
+    String file_name = "mode_" + Integer.toString(mode) + "_" + timeStamp + ".txt";
+    
+    mode_file = new File(file_name);
+    
+    if(mode == 1){
+      mode_1_file = mode_file;
+    }
+    if(mode == 2){
+      mode_2_file = mode_file;
+    }
+    if(mode == 3){
+      mode_3_file = mode_file;
+    }
+    if(mode == 4){
+      mode_4_file = mode_file;
+    }
+  }
+  
+  
+  FileWriter fr = null;
+  try {
+    fr = new FileWriter(mode_file, true);
+    fr.write(data + "\n");
+  } catch (IOException e) {
+    e.printStackTrace();
+  }finally{
+    //close resources1
+    try {
+      fr.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+  
+
+}
