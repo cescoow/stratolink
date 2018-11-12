@@ -37,6 +37,7 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <math.h>
 #include <avr/wdt.h>
+#include <EEPROM.h>
 
 /*TIAGO: inclui o inttypes*/
 #include <inttypes.h>
@@ -150,15 +151,15 @@ int32_t red = 57;
 int32_t mode = 0;
 int32_t valve = 59;
 int32_t servo = 0;
-int32_t flight_duration = 5 * 60 * 60;
+int32_t flight_duration = 4 * 60 * 60;
 int32_t low_stab = 3; // m/s
 int32_t med_stab = 1; // m/s
 float bar_speed = 100;
 int32_t first_try_start = 15000;
 int32_t first_try_stop = 18000;
-int32_t second_try_start = 20000;
+int32_t second_try_start = 19000;
 int32_t second_try_stop = 22000;
-int32_t end_flight_alt = 22500;
+int32_t end_flight_alt = 23000;
 uint8_t status_sd = false;
 uint8_t manual_overide = false;
 uint8_t updated_bar_speed = false;
@@ -167,6 +168,10 @@ uint8_t got_data = false;
 String string_data = "";
 String com_data = "";
 String picName = "pic0.jpg" ;
+int rssi = 0;
+int time_offset = 0;
+bool start_on_flight = false;
+bool cut_off = false;
 const double launch_lat = -22.00492339;
 const double launch_lon = -47.9347894;
 const double launch_alt = 851;
@@ -201,11 +206,11 @@ void setup()
   pwm.begin(); // Inicializa o driver pwm
   pwm.setPWMFreq(60); // Seta a freq. do driver
   delay(1000);
-  open_servo();
-  delay(1000);
-  close_servo();
-  mode_10();
-  mode_15();
+  if(get_bar_alt() > 30000){
+    start_on_flight = true;
+    time_offset = EEPROM.read(1)*200;
+    flight_duration = flight_duration - time_offset;
+  }
   start_song(); // Bonitin
   wdt_enable(WDTO_8S);
 }
@@ -220,11 +225,12 @@ void loop() // Rotina de modos devem ser implementadas para execuo unica, sem de
     got_data = false;
   }
   run(mode);
-  send_tm(); // Modo padro
+  send_tm(); // Modo padrão
+  save_time();
 
 }
 /*********************************************************************/
-void run(int mode) { // Implementar switch case de modos de voo. Os modos de voo devem ser executados dentro de perodos conhecidos
+void run(int mode) { // Implementar switch case de modos de voo. Os modos de voo devem ser executados dentro de periodos conhecidos
   switch (mode) {
     case 0:
       digitalWrite(blue, 1); // Implementar indicativos luminosos e sonoros pra cada modo
@@ -255,8 +261,6 @@ void run(int mode) { // Implementar switch case de modos de voo. Os modos de voo
       mode_7();
       break;
     case 8:
-      digitalWrite(blue, 0);
-      digitalWrite(red, 1);
       mode_8();
       break;
     case 9:
@@ -287,6 +291,10 @@ void run(int mode) { // Implementar switch case de modos de voo. Os modos de voo
 
 }
 /*********************************************************************/
+void save_time(){
+  EEPROM.write(1, time_offset + millis()/200000);
+}
+/*********************************************************************/
 void open_valve() {
   pwm.setPWM(1, 4096, 0);
 }
@@ -299,6 +307,8 @@ void end_flight() { // implementar checks e redundancias
   for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--) { //abre o servo
     pwm.setPWM(servo, 0, pulselen);
   }
+  digitalWrite(blue, 0);
+  digitalWrite(red, 1);
 }
 /*********************************************************************/
 void mode_0() { // Auto - auto mode e retorna pra enviar TM - Adicionar indicativo LED + buzzer (green + high pitch)]
@@ -429,12 +439,14 @@ void mode_15() { // Abre e fecha valvula
 
 
 void open_servo(){ // Abre servo
+  cut_off = true;
   for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--) { //abre o servo
     pwm.setPWM(servo, 0, pulselen);
   }
 }
 /*********************************************************************/
 void close_servo() { // Fecha o servo - chamada no incio
+  cut_off = false;
   for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++) {
     pwm.setPWM(servo, 0, pulselen);
   }
@@ -489,7 +501,7 @@ float get_bar_alt() { // Media de 3 leituras p/ precisao
 
 /*********************************************************************/
 void set_run_mode(String run_mode) { // Atualiza var global de modo de voo
-  lora_send("Received comand:" + run_mode);
+  lora_send("4;" + run_mode + ";" + rssi);
   Serial.println("Received comand:" + run_mode);
   if (run_mode.equals("auto\n")) {
     mode = 0;
@@ -579,6 +591,7 @@ void receive_lora() {
       while (LoRa.available()) {
         com_data.concat((char)LoRa.read());
       }
+      rssi = LoRa.packetRssi();
     }
   }
 }
@@ -636,7 +649,10 @@ void send_tm() //Funo para parser da NMEA, calculo dos parmetros do barmetro, mo
   string_data.concat(bar_speed); string_data.concat(";");
   string_data.concat(is_open); ; string_data.concat(";");
   string_data.concat(mode); ; string_data.concat(";");
-  string_data.concat(millis() / 1000);
+  string_data.concat(millis() / 1000); string_data.concat(";");
+  string_data.concat(rssi);string_data.concat(";");
+  string_data.concat(cut_off);string_data.concat(";");
+  string_data.concat(flight_duration - millis()/1000);
   string_data.concat(";x");
   save_data();
   Serial.println(string_data);
@@ -700,24 +716,23 @@ void send_photo() { // Funo que chama as rotinas de captura, transferncia, grava
   delay(5000);
 }
 
+
 /*********************************************************************/
 void lora_config() { // Configura os parmetros do LoRa
   Serial.println("Iniciando LoRa");
   LoRa.setPins(10, 9, 2); //LoRa.setPins(ss, reset, dio0)
-  if (!LoRa.begin(433.125E6)) {
+  if (!LoRa.begin(915E6)) {
     Serial.println("Falha LoRa");
     //while (1); Discutir - resetar wtd
   }
+  LoRa.setTxPower(20, 1);
   LoRa.setSignalBandwidth(125E3);
-  LoRa.setSpreadingFactor(11);
+  LoRa.setSpreadingFactor(10);
   LoRa.enableCrc();
 }
 
 /*********************************************************************/
-void save_data() { // Grava a string padro global no SD
-  //digitalWrite(red, LOW);
-  //wdt_reset();
-
+void save_data() {
   Serial.println(F("Save."));
   myFile = SD.open("log.txt", FILE_WRITE);
   if (myFile) {
@@ -729,7 +744,6 @@ void save_data() { // Grava a string padro global no SD
     delay(100);
     noTone(buzzer);
   } else {
-    //digitalWrite(red, HIGH);
     tone(buzzer, 800);
     delay(1000);
     noTone(buzzer);
